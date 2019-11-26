@@ -34,29 +34,32 @@
 	    [string]$varDebug
 	)  
 
+#Import SQLPS Module for the ability to call Invoke-Sqlcmd cmdlet
 Import-Module SQLPS
 
+#Variable Declaration and Initiations
 [int]$varBackup_File_Count = 0
 [int]$varBackup_File_Counter = 0
 [string]$varBackup_File_Name = ""
 $varBackup_File_Location = "C:\Program Files\Microsoft SQL Server\MSSQL15.SQL2019\MSSQL\Backup"
 $varTarget_SQL_Server_Instance_Name = ".\SQL2019"
 [string]$varConnection_Database_Name = "master"
-$varDebug = 1
+$varDebug = 0
 
 cls
 
-$varBackup_File_Location, $varTarget_SQL_Server_Instance_Name
-
+#Traverse through the folder and sub-folders to identify files with .bak extension
 $varBackup_Files = Get-ChildItem -Path $varBackup_File_Location -Recurse -Filter "*.bak" | Sort-Object -Property Length
 $varBackup_File_Count = $varBackup_Files.Count
 
 "Total Backup Files Identified (*.bak): " + $varBackup_File_Count.ToString()
 "-------------------------------------------"
 
+        #Get the default Data File and Transaction Log File path configured on the target SQL Server instance. 
         $varQuery = "SELECT CAST(SERVERPROPERTY('InstanceDefaultDataPath') AS VARCHAR(255)) AS Data_Path, CAST(SERVERPROPERTY('InstanceDefaultLogPath') AS VARCHAR(255)) AS Log_Path"
         $varInstance_Default_Path = Invoke-Sqlcmd -ServerInstance $varTarget_SQL_Server_Instance_Name -Database $varConnection_Database_Name -Query $varQuery
 
+        #If Verbose logging is enabled
         If($varDebug -eq 1)
             {
                     ""
@@ -69,6 +72,8 @@ $varBackup_File_Count = $varBackup_Files.Count
 Foreach ($varBackup_File in $varBackup_Files)
     {
         $varBackup_File_Name = $varBackup_File.Directory.ToString() + "\" + $varBackup_File.Name.ToString()
+
+        #If Verbose logging is enabled
         If($varDebug -eq 1)
             {
                 $varBackup_File_Counter  = $varBackup_File_Counter + 1
@@ -76,12 +81,15 @@ Foreach ($varBackup_File in $varBackup_Files)
                 "     File Name:         " + $varBackup_File_Name
             }
 
+        #Get Database Name and Backup timestamp from the backup file
         $varQuery = "RESTORE HEADERONLY FROM DISK = N'" + $varBackup_File_Name + "' WITH NOUNLOAD"
         $varDatabase_Name = Invoke-Sqlcmd -ServerInstance $varTarget_SQL_Server_Instance_Name -Database $varConnection_Database_Name -Query $varQuery
 
+        #Get database file list from the backup file
         $varQuery = "RESTORE FILELISTONLY FROM DISK = '" + $varBackup_File_Name + "' WITH FILE = 1"
         $varDatabase_Files = Invoke-Sqlcmd -ServerInstance $varTarget_SQL_Server_Instance_Name -Database $varConnection_Database_Name -Query $varQuery
 
+        #If Verbose logging is enabled
         If($varDebug -eq 1)
             {
                 "     Database Name:     " + $varDatabase_Name.DatabaseName 
@@ -96,6 +104,7 @@ Foreach ($varBackup_File in $varBackup_Files)
 
         Foreach ($varDatabase_File in $varDatabase_Files)
             {
+                #If Verbose logging is enabled
                 If($varDebug -eq 1)
                     {
                         "     Logical File Name: " + $varDatabase_File.LogicalName + ", Type: " + $varDatabase_File.Type
@@ -113,6 +122,8 @@ Foreach ($varBackup_File in $varBackup_Files)
             }   
         $varQuery = $varQuery + "
                         NOUNLOAD, STATS = 5"
+
+        #If Verbose logging is enabled
         If($varDebug -eq 1)
             {
                 "     Restore Script:    " + $varQuery
