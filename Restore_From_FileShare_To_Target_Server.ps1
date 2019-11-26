@@ -42,6 +42,7 @@ Import-Module SQLPS
 $varBackup_File_Location = "C:\Program Files\Microsoft SQL Server\MSSQL15.SQL2019\MSSQL\Backup"
 $varTarget_SQL_Server_Instance_Name = ".\SQL2019"
 [string]$varConnection_Database_Name = "master"
+$varDebug = 1
 
 cls
 
@@ -56,17 +57,24 @@ $varBackup_File_Count = $varBackup_Files.Count
         $varQuery = "SELECT CAST(SERVERPROPERTY('InstanceDefaultDataPath') AS VARCHAR(255)) AS Data_Path, CAST(SERVERPROPERTY('InstanceDefaultLogPath') AS VARCHAR(255)) AS Log_Path"
         $varInstance_Default_Path = Invoke-Sqlcmd -ServerInstance $varTarget_SQL_Server_Instance_Name -Database $varConnection_Database_Name -Query $varQuery
 
-        ""
-        "Default Data Path: " + $varInstance_Default_Path.Data_Path
-        "Default Log Path:  " + $varInstance_Default_Path.Log_Path
-        ""
+        If($varDebug -eq 1)
+            {
+                    ""
+                    "Default Data Path: " + $varInstance_Default_Path.Data_Path
+                    "Default Log Path:  " + $varInstance_Default_Path.Log_Path
+                    ""
+            }
+
 
 Foreach ($varBackup_File in $varBackup_Files)
     {
-        $varBackup_File_Counter  = $varBackup_File_Counter + 1
-        "File (" + $varBackup_File_Counter.ToString() + "/" + $varBackup_File_Count.ToString() + ")"
         $varBackup_File_Name = $varBackup_File.Directory.ToString() + "\" + $varBackup_File.Name.ToString()
-        "     File Name:         " + $varBackup_File_Name
+        If($varDebug -eq 1)
+            {
+                $varBackup_File_Counter  = $varBackup_File_Counter + 1
+                "File (" + $varBackup_File_Counter.ToString() + "/" + $varBackup_File_Count.ToString() + ")"
+                "     File Name:         " + $varBackup_File_Name
+            }
 
         $varQuery = "RESTORE HEADERONLY FROM DISK = N'" + $varBackup_File_Name + "' WITH NOUNLOAD"
         $varDatabase_Name = Invoke-Sqlcmd -ServerInstance $varTarget_SQL_Server_Instance_Name -Database $varConnection_Database_Name -Query $varQuery
@@ -74,8 +82,11 @@ Foreach ($varBackup_File in $varBackup_Files)
         $varQuery = "RESTORE FILELISTONLY FROM DISK = '" + $varBackup_File_Name + "' WITH FILE = 1"
         $varDatabase_Files = Invoke-Sqlcmd -ServerInstance $varTarget_SQL_Server_Instance_Name -Database $varConnection_Database_Name -Query $varQuery
 
-        "     Database Name:     " + $varDatabase_Name.DatabaseName 
-        "     Backup Timestamp:  " + $varDatabase_Name.BackupFinishDate
+        If($varDebug -eq 1)
+            {
+                "     Database Name:     " + $varDatabase_Name.DatabaseName 
+                "     Backup Timestamp:  " + $varDatabase_Name.BackupFinishDate
+            }
 
         $varQuery = "RESTORE DATABASE [" + $varDatabase_Name.DatabaseName + "] "
         $varQuery = $varQuery + "
@@ -85,7 +96,10 @@ Foreach ($varBackup_File in $varBackup_Files)
 
         Foreach ($varDatabase_File in $varDatabase_Files)
             {
-                "     Logical File Name: " + $varDatabase_File.LogicalName + ", Type: " + $varDatabase_File.Type
+                If($varDebug -eq 1)
+                    {
+                        "     Logical File Name: " + $varDatabase_File.LogicalName + ", Type: " + $varDatabase_File.Type
+                    }
                 if ($varDatabase_File.Type -eq "D")
                     {
                                         $varQuery = $varQuery + "
@@ -99,6 +113,13 @@ Foreach ($varBackup_File in $varBackup_Files)
             }   
         $varQuery = $varQuery + "
                         NOUNLOAD, STATS = 5"
-        "     Restore Script:    " + $varQuery
+        If($varDebug -eq 1)
+            {
+                "     Restore Script:    " + $varQuery
+            }
+        Else
+            {
+                $varQuery
+            }
         " "
     }
